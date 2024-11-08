@@ -1,0 +1,167 @@
+- name: Check host availability
+  hosts: all
+  tasks:
+   - name: Ping hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Test123
+
+- name: Update system packages
+  hosts: all
+  become: yes
+  tasks:
+   - name: Update package manager cache
+     ansible.builtin.package:
+      update_cache: yes
+     # when: ansible_pkg_mgr == "dnf"
+
+   - name: Upgrade all packages
+     ansible.builtin.package:
+      name: "*"
+      state: latest
+
+   - name: Add packages for dotfile setup
+     ansible.builtin.package:
+      name:
+       - git
+       - zsh
+       - vim
+       - bat
+       - btop
+       - fontconfig
+      state: latest
+
+- name: Install and setup OhMyZsh
+  hosts: all
+  tasks:
+   - name: Create oh-my-zsh directory
+     ansible.builtin.file:
+      path: /home/{{ ansible_ssh_user }}/.oh-my-zsh
+      state: directory
+
+   - name: Clone repo
+     git:
+       repo: https://github.com/ohmyzsh/ohmyzsh.git
+       dest: /home/{{ ansible_ssh_user }}/.oh-my-zsh
+       clone: yes
+       update: yes
+
+   - name: Create ~/.zshrc if needed
+     copy: 
+      src: /home/{{ ansible_ssh_user }}/.oh-my-zsh/templates/zshrc.zsh-template
+      dest: /home/{{ ansible_ssh_user }}/.zshrc
+      force: no
+      remote_src: true
+
+   - name: Change shell to zsh
+     become: yes
+     ansible.builtin.user:
+      name: "{{ ansible_ssh_user }}"
+      shell: /usr/bin/zsh
+
+- name: Install and setup zsh plugins
+  hosts: all
+  tasks:
+   - name: Create zsh-syntax-highlighting directory
+     ansible.builtin.file:
+      path: /home/{{ ansible_ssh_user }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+      state: directory
+
+   - name: Create zsh-autosuggestions directory
+     ansible.builtin.file:
+      path: /home/{{ ansible_ssh_user }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+      state: directory
+
+   - name: Clone zsh-syntax-hightlighting repo
+     git:
+      repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+      dest: /home/{{ ansible_ssh_user }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+      clone: yes
+      update: yes
+
+   - name: Clone zsh-autosuggestions repo
+     git:
+      repo: https://github.com/zsh-users/zsh-autosuggestions.git
+      dest: /home/{{ ansible_ssh_user }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+      clone: yes
+      update: yes
+
+   - name: Add plugins to ~/.zshrc
+     ansible.builtin.shell: "sed -i 's/^plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' /home/{{ ansible_ssh_user }}/.zshrc"
+
+- name: Install and setup fzf
+  hosts: all
+  tasks:
+   - name: Create fzf directory
+     ansible.builtin.file:
+      path: /home/{{ ansible_ssh_user }}/.fzf
+      state: directory
+
+   - name: Clone fzf repo
+     git:
+      repo: https://github.com/junegunn/fzf.git
+      dest: /home/{{ ansible_ssh_user }}/.fzf
+      depth: 1
+      clone: yes
+      update: yes
+
+   - name: Install fzf
+     ansible.builtin.shell: sh /home/{{ ansible_ssh_user }}/.fzf/install --all
+
+- name: Install Powerlevel10k (setup at login)
+  hosts: all
+  become: yes
+  tasks:
+   - name: Create P10K directory
+     ansible.builtin.file:
+      path: /home/{{ ansible_ssh_user }}/.oh-my-zsh/custom/themes/powerlevel10k
+      state: directory
+
+   - name: Create font directory
+     ansible.builtin.file:
+      path: /usr/local/share/fonts/MesloLGSNF
+      state: directory
+
+   - name: Download MesloLGS regular
+     ansible.builtin.get_url:
+      url: https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
+      dest: /usr/local/share/fonts/MesloLGSNF/MesloLGS%20NF%20Regular.ttf
+      mode: '0644'
+      owner: root
+
+   - name: Download MesloLGS bold
+     ansible.builtin.get_url:
+      url: https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
+      dest: /usr/local/share/fonts/MesloLGSNF/MesloLGS%20NF%20Bold.ttf
+      mode: '0644'
+      owner: root
+
+   - name: Download MesloLGS italic
+     ansible.builtin.get_url:
+      url: https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
+      dest: /usr/local/share/fonts/MesloLGSNF/MesloLGS%20NF%20Italic.ttf
+      mode: '0644'
+      owner: root
+
+   - name: Download MesloLGS bold italic
+     ansible.builtin.get_url:
+      url: https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
+      dest: /usr/local/share/fonts/MesloLGSNF/MesloLGS%20NF%20Bold%20Italic.ttf
+      mode: '0644'
+      owner: root
+
+   - name: Update font cache
+     ansible.builtin.shell: fc-cache -v
+
+   - name: Clone P10K repo
+     git:
+      repo: https://github.com/romkatv/powerlevel10k.git
+      dest: /home/{{ ansible_ssh_user }}/.oh-my-zsh/custom/themes/powerlevel10k
+      depth: 1
+      clone: yes
+      update: yes
+
+   - name: Enable P10K theme in ~/.zshrc
+     ansible.builtin.shell: sed -i 's/robbyrussell/powerlevel10k\/powerlevel10k/' /home/{{ ansible_ssh_user }}/.zshrc
